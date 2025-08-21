@@ -1,0 +1,6 @@
+# zram size, in MB. the default value is half memory size.
+#ZRAM_SIZE=$((RAM / 2))
+# zram compression algorithm.
+#ZRAM_COMPRESS=auto
+# virtual memory config, the default values are as follows.
+#VM="swappiness=90 watermark_boost_factor=0 watermark_scale_factor=125 page-cluster=0"

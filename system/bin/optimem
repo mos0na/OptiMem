@@ -1,0 +1,66 @@
+#!/system/bin/sh
+
+config_file=/data/adb/optimem/config
+default_vm_values="swappiness=90 watermark_boost_factor=0 watermark_scale_factor=125 page-cluster=0"
+
+zram_size=
+compression_algorithm=
+vm_values=
+
+check_zram() {
+	if [ ! -e /dev/block/zram0 ] && [ ! -e /sys/class/zram-control ]; then
+		echo "Kernel unsupported zram!"
+		exit 1
+	fi
+}
+
+read_config() {
+	RAM=$(free -m | awk 'NR==2{print $2}')
+	export RAM
+	if [ -f "$config_file" ]; then
+		# shellcheck disable=SC1090
+		. "$config_file"
+	fi
+
+	zram_size=${ZRAM_SIZE:-4096}
+	compression_algorithm=${ZRAM_COMPRESS:-$((RAM / 2))}
+	vm_values=${VM:-"$default_vm_values"}
+}
+
+write() {
+	[ -f "$1" ] && echo "$2" >"$1" 2>/dev/null
+}
+
+init_zram() {
+	backing_dev=$(cat /sys/block/zram0/backing_dev)
+
+	echo "Resetting zram..."
+	swapoff /dev/block/zram0
+	write /sys/block/zram0/reset 1
+
+	if [ "$backing_dev" != "" ] && [ "$backing_dev" != "none" ]; then
+		write /sys/block/zram0/backing_dev "$backing_dev"
+	fi
+
+	echo "Setting up zram..."
+	if [ ! -z "$compression_algorithm" ] && [ "$compression_algorithm" != "auto" ]; then
+		write /sys/block/zram0/comp_algorithm "$compression_algorithm"
+	fi
+	write /sys/block/zram0/disksize "${zram_size}M"
+
+	mkswap /dev/block/zram0
+	swapon /dev/block/zram0
+
+	echo "Setting virtual memory values..."
+	for value in $vm_values; do
+		raw_key=$(echo "$value" | cut -d'=' -f1 | sed 's/\./\//g')
+		raw_value=$(echo "$value" | cut -d'=' -f2)
+		write /proc/sys/vm/"$raw_key" "$raw_value"
+	done
+
+	echo "Init zram successfully!"
+}
+
+check_zram
+read_config
+init_zram
