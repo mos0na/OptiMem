@@ -4,3 +4,4 @@ version=0.1.0
 versionCode=0
 author=Moonlight Sonata
 description=Optimize Android memory
+updateJson=https://raw.githubusercontent.com/mos0na/OptiMem/main/update.json
